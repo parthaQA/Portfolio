@@ -1,0 +1,39 @@
+stages:
+  - prepare
+  - test
+
+install_java:
+  image: ubuntu:latest
+  stage: prepare
+  script:
+    - apt-get update
+    - apt-get install -y openjdk-11-jdk wget unzip
+    - echo "JAVA_HOME is $(dirname $(dirname $(readlink -f $(which java))))"
+    - export JAVA_HOME=$(dirname $(dirname $(readlink -f $(which java))))
+    - echo "JAVA_HOME=$JAVA_HOME" >> environment.txt
+  artifacts:
+    paths:
+      - environment.txt
+
+run_jmeter_tests:
+  image: ubuntu:latest
+  stage: test
+  dependencies:
+    - install_java
+  script:
+    - apt-get update
+    - apt-get install -y openjdk-11-jdk wget unzip
+    - export $(cat environment.txt | xargs)
+    - echo "JAVA_HOME is set to $JAVA_HOME"
+    - wget https://archive.apache.org/dist/jmeter/binaries/apache-jmeter-5.6.3.zip
+    - unzip apache-jmeter-5.6.3.zip
+    - echo "Preparing runtime report files..."
+    - mkdir -p results
+    - export REPORT_FILE="result/result-$CI_PIPELINE_ID.jtl"
+    - export REPORT_DIR="result/report-$CI_PIPELINE_ID"
+    - mkdir -p "$REPORT_DIR"
+    - apache-jmeter-5.6.3/bin/jmeter -n -t Dummyjson_performance.jmx -Jthreads=100 -Jrampup=60 -l "$REPORT_FILE" -e -o "$REPORT_DIR"
+  artifacts:
+    paths:
+      - result/
+    expire_in: 1 week
